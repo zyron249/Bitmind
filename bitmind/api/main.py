@@ -7,6 +7,8 @@ from bitmind.api import poi
 from bitmind.api import validators as validators_api
 from bitmind.api import audit as audit_api
 from bitmind.api import poi_appeals
+from bitmind.api import governance as governance_api
+from bitmind.api import explorer as explorer_api
 from bitmind.core import tasks, models, anti_cheat, reputation, rewards, ledger
 
 app = FastAPI(title="BitMind MVP API")
@@ -23,6 +25,8 @@ app.include_router(poi.router)
 app.include_router(validators_api.router)
 app.include_router(audit_api.router)
 app.include_router(poi_appeals.router)
+app.include_router(governance_api.router)
+app.include_router(explorer_api.router)
 
 # Request/response models
 class CreateUserRequest(BaseModel):
