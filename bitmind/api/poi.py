@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from ..core import models, anti_cheat, rewards
+from ..core import models, anti_cheat, rewards, ledger
 from ..consensus import proof_of_intelligence, consensus, validators, scoring
 
 router = APIRouter(prefix="/poi", tags=["proof_of_intelligence"])
@@ -23,6 +23,26 @@ class EvaluateResponse(BaseModel):
     reward_eligible: bool
     reward_amount: float
     decision_reason: str
+
+class AwardRequest(BaseModel):
+    submission_id: str
+    approved_by_validator_id: str
+
+class AwardResponse(BaseModel):
+    awarded: bool
+    amount: float
+    ledger_entry_id: Optional[str]
+    reason: str
+
+class RejectRequest(BaseModel):
+    submission_id: str
+    validator_id: str
+    reason: str
+
+class AppealRequest(BaseModel):
+    submission_id: str
+    user_id: str
+    appeal_reason: str
 
 @router.post("/evaluate", response_model=EvaluateResponse)
 def evaluate_contribution(req: EvaluateRequest):
@@ -135,3 +155,52 @@ def list_poi_evaluations():
             "reward_eligible": eligible,
         })
     return out
+
+@router.post("/award", response_model=AwardResponse)
+def award_submission(req: AwardRequest):
+    sub = models.InMemoryDB.submissions.get(req.submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub.awarded:
+        return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="already_awarded")
+    # check eligibility
+    fraud = anti_cheat.fraud_risk_score(sub)
+    cons = consensus.compute_consensus_for_task(sub.assignment.task_id)
+    approval = validators.validators_approval(sub.assignment.task_id, cons["consensus_score"])
+    eligible = cons["consensus_pass"] and approval and sub.final_score > 0 and fraud < 0.8
+    if not eligible:
+        return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="not_eligible")
+    # award
+    amount = rewards.compute_reward_for_submission(sub)
+    entry = ledger.add_entry(sub.user_id, amount, reason=f"award:submission:{sub.id}:approved_by:{req.approved_by_validator_id}")
+    sub.awarded = True
+    models.InMemoryDB.submissions[sub.id] = sub
+    return AwardResponse(awarded=True, amount=amount, ledger_entry_id=entry.id, reason="awarded")
+
+@router.post("/reject")
+def reject_submission(req: RejectRequest):
+    sub = models.InMemoryDB.submissions.get(req.submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    sub.verdict = "rejected"
+    sub.rejection_reason = req.reason
+    models.InMemoryDB.submissions[sub.id] = sub
+    models.InMemoryDB.rejections.append({"submission_id": sub.id, "validator_id": req.validator_id, "reason": req.reason})
+    return {"rejected": True, "submission_id": sub.id, "reason": req.reason}
+
+@router.post("/appeal")
+def appeal_submission(req: AppealRequest):
+    sub = models.InMemoryDB.submissions.get(req.submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub.user_id != req.user_id:
+        raise HTTPException(status_code=403, detail="User not owner of submission")
+    appeal = {"appeal_id": str(uuid.uuid4()), "submission_id": sub.id, "user_id": req.user_id, "appeal_reason": req.appeal_reason, "status": "pending", "created_at": datetime.utcnow().isoformat()}
+    models.InMemoryDB.appeals.append(appeal)
+    sub.appealed = True
+    models.InMemoryDB.submissions[sub.id] = sub
+    return {"appeal_created": True, "appeal_id": appeal["appeal_id"]}
+
+@router.get("/appeals")
+def list_appeals():
+    return models.InMemoryDB.appeals

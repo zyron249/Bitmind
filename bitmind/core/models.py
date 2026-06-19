@@ -1,16 +1,17 @@
-from __future__ import annotations
+from typing import Optional, List
 from pydantic import BaseModel, Field
-from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
 
 # In-memory DB singleton
 class InMemoryDB:
-    users: Dict[str, "User"] = {}
-    tasks: Dict[str, "Task"] = {}
-    assignments: Dict[str, "Assignment"] = {}
-    submissions: Dict[str, "Submission"] = {}
-    ledger_entries: List["LedgerEntry"] = []
+    users: dict = {}
+    tasks: dict = {}
+    assignments: dict = {}
+    submissions: dict = {}
+    ledger_entries: list = []
+    appeals: list = []
+    rejections: list = []
 
 # Models
 class User(BaseModel):
@@ -46,6 +47,9 @@ class Submission(BaseModel):
     human_score: Optional[float] = None
     final_score: float = 0.0
     verdict: Optional[str] = None
+    awarded: bool = False
+    rejection_reason: Optional[str] = None
+    appealed: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class LedgerEntry(BaseModel):
