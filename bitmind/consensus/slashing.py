@@ -1,5 +1,5 @@
 from . import validators as consensus_validators
-from ..core import validators as core_validators, rewards
+from ..core import validators as core_validators, rewards, audit
 
 # slashing rules (percentages)
 SLASH_FRAUD_APPROVAL = 0.10
@@ -33,11 +33,12 @@ def slash_validator_for_event(validator_id: str, event: str) -> float:
     v.staked_amount = max(0.0, v.staked_amount - slashed)
     core_validators.record_slash(validator_id)
     # update validator_score (penalize)
-    # simple penalty: reduce validator_score slightly
     v.validator_score = max(0.0, v.validator_score - percent)
     core_validators._ensure_registry()
-    core_validators.get_validator(validator_id)  # ensure exists
-    # save back
     core_validators_list = core_validators.list_validators()
     core_validators.get_validator(validator_id)  # no-op to keep consistent
+    # save back
+    core_validators.get_validator(validator_id)
+    # add audit event
+    audit.add_audit_event(event_type="slash", actor_id=validator_id, target_id=v.user_id, reason=reason, metadata={"amount": slashed})
     return slashed
