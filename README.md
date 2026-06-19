@@ -28,13 +28,25 @@ Testing
 - Run unit tests:
   pytest -q
 
+Coverage
+
+- Run coverage report:
+  make coverage
+
 Docker (development)
 
 - Build and run with Docker Compose (starts API, Postgres, Redis):
-  docker compose up --build
+  make docker-up
+
+CI (GitHub Actions)
+
+- The repository includes a CI workflow (.github/workflows/ci.yml) that runs on push and pull requests to main. The workflow:
+  - Installs dependencies
+  - Runs ruff linter (must pass)
+  - Runs pytest with coverage reporting (must pass)
 
 Notes
 
 - This project is an MVP for architecture and experimentation. Do NOT use it in production.
 - No real OpenAI API key is included; integration points are clearly marked to be added via environment variables later.
-- The MVP uses an in-memory storage backend. A PostgreSQL scaffold exists in bitmind/db/ for future migration and Alembic usage.
+- The MVP uses an in-memory storage backend by default. A PostgreSQL scaffold exists in bitmind/db/ for future migration and Alembic usage.

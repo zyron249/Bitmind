@@ -34,7 +34,7 @@ jobs:
           pip install ruff
       - name: Lint (ruff)
         run: |
-          ruff check . || true
-      - name: Run tests
+          ruff check .
+      - name: Run tests with coverage
         run: |
-          pytest -q
+          pytest --cov=bitmind --cov-report=term-missing -q

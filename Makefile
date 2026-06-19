@@ -7,6 +7,9 @@ test:
 lint:
 	ruff check .
 
+coverage:
+	pytest --cov=bitmind --cov-report=term-missing -q
+
 check:
 	./scripts/check.sh
 
