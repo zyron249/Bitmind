@@ -6,6 +6,7 @@ import uuid
 from bitmind.api import poi
 from bitmind.api import validators as validators_api
 from bitmind.api import audit as audit_api
+from bitmind.api import poi_appeals
 from bitmind.core import tasks, models, anti_cheat, reputation, rewards, ledger
 
 app = FastAPI(title="BitMind MVP API")
@@ -21,6 +22,7 @@ app.add_middleware(
 app.include_router(poi.router)
 app.include_router(validators_api.router)
 app.include_router(audit_api.router)
+app.include_router(poi_appeals.router)
 
 # Request/response models
 class CreateUserRequest(BaseModel):
