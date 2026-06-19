@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from ..core import models, anti_cheat, rewards, ledger
-from ..consensus import proof_of_intelligence, consensus, validators, scoring
+from ..core import models, anti_cheat, rewards, ledger, validators as core_validators
+from ..consensus import proof_of_intelligence, consensus as consensus_module, validators as consensus_validators, scoring
 
 router = APIRouter(prefix="/poi", tags=["proof_of_intelligence"])
 
@@ -84,8 +84,8 @@ def evaluate_contribution(req: EvaluateRequest):
     fraud = req.fraud_risk if req.fraud_risk is not None else anti_cheat.fraud_risk_score(submission)
 
     # consensus and validators
-    cons = consensus.compute_consensus_for_task(req.task_id)
-    approval = validators.validators_approval(req.task_id, cons["consensus_score"]) if req.validator_approvals is None else (req.validator_approvals > 0)
+    cons = consensus_module.compute_consensus_for_task(req.task_id)
+    approval = consensus_validators.validators_approval(req.task_id, cons["consensus_score"]) if req.validator_approvals is None else (req.validator_approvals > 0)
 
     # reward eligibility (note: do not distribute here)
     eligible = False
@@ -124,8 +124,8 @@ def get_poi_status(submission_id: str):
         raise HTTPException(status_code=404, detail="Submission not found")
     task = models.get_task(submission.assignment.task_id)
     fraud = anti_cheat.fraud_risk_score(submission)
-    cons = consensus.compute_consensus_for_task(submission.assignment.task_id)
-    approval = validators.validators_approval(submission.assignment.task_id, cons["consensus_score"])
+    cons = consensus_module.compute_consensus_for_task(submission.assignment.task_id)
+    approval = consensus_validators.validators_approval(submission.assignment.task_id, cons["consensus_score"])
     eligible = cons["consensus_pass"] and approval and submission.final_score > 0 and fraud < 0.8
     return {
         "submission_id": submission.id,
@@ -142,8 +142,8 @@ def list_poi_evaluations():
     out = []
     for s in models.InMemoryDB.submissions.values():
         fraud = anti_cheat.fraud_risk_score(s)
-        cons = consensus.compute_consensus_for_task(s.assignment.task_id)
-        approval = validators.validators_approval(s.assignment.task_id, cons["consensus_score"])
+        cons = consensus_module.compute_consensus_for_task(s.assignment.task_id)
+        approval = consensus_validators.validators_approval(s.assignment.task_id, cons["consensus_score"])
         eligible = cons["consensus_pass"] and approval and s.final_score > 0 and fraud < 0.8
         out.append({
             "submission_id": s.id,
@@ -161,12 +161,15 @@ def award_submission(req: AwardRequest):
     sub = models.InMemoryDB.submissions.get(req.submission_id)
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
+    # authorization check: approved_by_validator_id must be an active validator
+    if not core_validators.is_authorized_validator(req.approved_by_validator_id):
+        raise HTTPException(status_code=403, detail="Validator not authorized")
     if sub.awarded:
         return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="already_awarded")
     # check eligibility
     fraud = anti_cheat.fraud_risk_score(sub)
-    cons = consensus.compute_consensus_for_task(sub.assignment.task_id)
-    approval = validators.validators_approval(sub.assignment.task_id, cons["consensus_score"])
+    cons = consensus_module.compute_consensus_for_task(sub.assignment.task_id)
+    approval = consensus_validators.validators_approval(sub.assignment.task_id, cons["consensus_score"])
     eligible = cons["consensus_pass"] and approval and sub.final_score > 0 and fraud < 0.8
     if not eligible:
         return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="not_eligible")
@@ -182,9 +185,14 @@ def reject_submission(req: RejectRequest):
     sub = models.InMemoryDB.submissions.get(req.submission_id)
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
+    # authorization check
+    if not core_validators.is_authorized_validator(req.validator_id):
+        raise HTTPException(status_code=403, detail="Validator not authorized")
     sub.verdict = "rejected"
     sub.rejection_reason = req.reason
     models.InMemoryDB.submissions[sub.id] = sub
+    if not hasattr(models.InMemoryDB, 'rejections'):
+        models.InMemoryDB.rejections = []
     models.InMemoryDB.rejections.append({"submission_id": sub.id, "validator_id": req.validator_id, "reason": req.reason})
     return {"rejected": True, "submission_id": sub.id, "reason": req.reason}
 
@@ -196,6 +204,8 @@ def appeal_submission(req: AppealRequest):
     if sub.user_id != req.user_id:
         raise HTTPException(status_code=403, detail="User not owner of submission")
     appeal = {"appeal_id": str(uuid.uuid4()), "submission_id": sub.id, "user_id": req.user_id, "appeal_reason": req.appeal_reason, "status": "pending", "created_at": datetime.utcnow().isoformat()}
+    if not hasattr(models.InMemoryDB, 'appeals'):
+        models.InMemoryDB.appeals = []
     models.InMemoryDB.appeals.append(appeal)
     sub.appealed = True
     models.InMemoryDB.submissions[sub.id] = sub
@@ -203,4 +213,6 @@ def appeal_submission(req: AppealRequest):
 
 @router.get("/appeals")
 def list_appeals():
+    if not hasattr(models.InMemoryDB, 'appeals'):
+        models.InMemoryDB.appeals = []
     return models.InMemoryDB.appeals
