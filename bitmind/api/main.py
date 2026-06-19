@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import uuid
+from bitmind.api import poi
 from bitmind.core import tasks, models, anti_cheat, reputation, rewards, ledger
 
 app = FastAPI(title="BitMind MVP API")
@@ -14,6 +15,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(poi.router)
 
 # Request/response models
 class CreateUserRequest(BaseModel):
