@@ -28,33 +28,41 @@ def cast_vote(voter_validator_id: str, proposal_id: str, vote: str) -> bool:
     p = proposals.get_proposal(proposal_id)
     if not p or p.status != 'active':
         return False
+    # check voting period
+    now = datetime.utcnow()
+    if p.voting_starts_at and now < p.voting_starts_at:
+        return False
+    if p.voting_ends_at and now > p.voting_ends_at:
+        return False
     # voting power = validator.staked_amount
     voting_power = v.staked_amount
     key = f"{proposal_id}:{voter_validator_id}"
     models.InMemoryDB.votes[key] = Vote(voter_id=voter_validator_id, proposal_id=proposal_id, vote=vote, voting_power=voting_power)
     audit.add_audit_event(event_type='proposal_vote', actor_id=voter_validator_id, target_id=proposal_id, reason=vote, metadata={'voting_power': voting_power})
-    # After casting vote, attempt tally and update status if threshold met
-    tally_and_update(proposal_id)
+    # After casting vote, attempt early finalize if early majority reached and quorum met
+    tally = tally_votes_raw(proposal_id)
+    total_active = total_active_stake()
+    cast_power = tally['cast_power']
+    quorum = (cast_power / total_active) if total_active > 0 else 0.0
+    yes_power = tally['yes_power']
+    no_power = tally['no_power']
+    # early finalize condition
+    if total_active > 0 and quorum >= p.quorum_required:
+        # if yes or no majority exceed early_majority_threshold of total_active, finalize early
+        if (yes_power / total_active) >= p.early_majority_threshold:
+            proposals.set_proposal_status(proposal_id, 'passed')
+        elif (no_power / total_active) >= p.early_majority_threshold:
+            proposals.set_proposal_status(proposal_id, 'rejected')
     return True
 
 
-def tally_and_update(proposal_id: str) -> dict:
+def tally_votes_raw(proposal_id: str) -> dict:
     _ensure_store()
-    # collect votes for proposal
     votes = [v for k, v in models.InMemoryDB.votes.items() if v.proposal_id == proposal_id]
-    if not votes:
-        return {'yes_power': 0.0, 'no_power': 0.0, 'total_active_stake': total_active_stake(), 'passed': False}
     yes_power = sum(v.voting_power for v in votes if v.vote == 'yes')
     no_power = sum(v.voting_power for v in votes if v.vote == 'no')
-    total_active = total_active_stake()
-    passed = False
-    # proposal passes if yes_power > 50% of total_active stake
-    if total_active > 0 and (yes_power / total_active) > 0.5:
-        proposals.set_proposal_status(proposal_id, 'passed')
-        passed = True
-    elif total_active > 0 and (no_power / total_active) >= 0.5:
-        proposals.set_proposal_status(proposal_id, 'rejected')
-    return {'yes_power': yes_power, 'no_power': no_power, 'total_active_stake': total_active, 'passed': passed}
+    cast = yes_power + no_power
+    return {'yes_power': yes_power, 'no_power': no_power, 'cast_power': cast}
 
 
 def total_active_stake() -> float:

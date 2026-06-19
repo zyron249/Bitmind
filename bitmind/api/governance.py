@@ -10,6 +10,9 @@ class CreateProposalRequest(BaseModel):
     title: str
     description: Optional[str] = None
     created_by: str
+    voting_starts_at: Optional[str] = None  # ISO datetime
+    voting_period_seconds: Optional[int] = 86400
+    quorum_required: Optional[float] = 0.20
 
 class ProposalResponse(BaseModel):
     proposal_id: str
@@ -18,6 +21,9 @@ class ProposalResponse(BaseModel):
     created_by: str
     created_at: str
     status: str
+    voting_starts_at: Optional[str]
+    voting_ends_at: Optional[str]
+    quorum_required: float
 
 class VoteRequest(BaseModel):
     voter_validator_id: str
@@ -26,8 +32,12 @@ class VoteRequest(BaseModel):
 
 @router.post("/proposals", status_code=201)
 def create_proposal(req: CreateProposalRequest):
-    # create proposal
-    p = gov_proposals.create_proposal(req.title, req.description or "", req.created_by)
+    # parse voting_starts_at if provided
+    from datetime import datetime
+    start = None
+    if req.voting_starts_at:
+        start = datetime.fromisoformat(req.voting_starts_at)
+    p = gov_proposals.create_proposal(req.title, req.description or "", req.created_by, voting_starts_at=start, voting_period_seconds=req.voting_period_seconds or 86400, quorum_required=req.quorum_required or 0.20)
     return p.dict()
 
 @router.get("/proposals")
@@ -51,5 +61,12 @@ def cast_vote(req: VoteRequest):
         raise HTTPException(status_code=400, detail="Invalid vote option")
     ok = gov_voting.cast_vote(req.voter_validator_id, req.proposal_id, req.vote)
     if not ok:
-        raise HTTPException(status_code=400, detail="Vote failed (proposal inactive or voter invalid)")
+        raise HTTPException(status_code=400, detail="Vote failed (proposal inactive, outside voting period, or voter invalid)")
     return {"voted": True}
+
+@router.post("/proposals/{proposal_id}/finalize")
+def finalize_proposal(proposal_id: str):
+    res = gov_proposals.finalize_proposal(proposal_id)
+    if res.get('error'):
+        raise HTTPException(status_code=400, detail=res['error'])
+    return res
