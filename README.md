@@ -21,4 +21,18 @@ Run locally (development):
 
 OpenAPI docs: http://127.0.0.1:8000/docs
 
-Note: This project is an MVP for architecture and experimentation. Do NOT use it in production. No real OpenAI API key is included; integration points are clearly marked to be added via environment variables later.
+Testing
+
+- Run unit tests:
+  pytest -q
+
+Docker (development)
+
+- Build and run with Docker Compose (starts API, Postgres, Redis):
+  docker compose up --build
+
+Notes
+
+- This project is an MVP for architecture and experimentation. Do NOT use it in production.
+- No real OpenAI API key is included; integration points are clearly marked to be added via environment variables later.
+- The MVP uses an in-memory storage backend. A PostgreSQL scaffold exists in bitmind/db/ for future migration and Alembic usage.
