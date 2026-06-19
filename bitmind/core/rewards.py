@@ -35,9 +35,10 @@ def stake(user_id: str, amount: float):
         raise Exception("Stake amount must be positive")
     if user.balance < amount:
         raise Exception("Insufficient balance to stake")
-    user.balance -= amount
+    # Do not double-deduct balance here; ledger.add_entry will adjust balance.
     user.staked += amount
     models.InMemoryDB.users[user.id] = user
+    # record stake as a negative ledger entry (reduces available balance)
     ledger.add_entry(user.id, -amount, reason="stake")
     return True
 
@@ -49,5 +50,6 @@ def slash(user_id: str, amount: float, reason: str = "slashing"):
     slashed = min(user.staked, amount)
     user.staked -= slashed
     models.InMemoryDB.users[user.id] = user
-    ledger.add_entry(user.id, -slashed, reason=reason)
+    # Record slashing event in ledger for audit purposes without modifying balance (stake already deducted)
+    ledger.add_entry(user.id, 0.0, reason=reason)
     return slashed

@@ -1,5 +1,7 @@
 # BitMind
 
+![CI](https://github.com/zyron249/Bitmind/actions/workflows/ci.yml/badge.svg)
+
 BitMind is a prototype project that demonstrates a quality-first reward system for human contributions backed by a simulated token ledger (BMD). The focus is on anti-cheat, reputation, multi-review consensus, and reward distribution. This MVP is intentionally in-memory and does not include any blockchain or real OpenAI keys.
 
 Features (MVP)
