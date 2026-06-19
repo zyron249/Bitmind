@@ -1,0 +1,1 @@
+# bitmind.db package

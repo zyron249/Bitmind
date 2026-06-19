@@ -5,7 +5,10 @@ test:
 	pytest -q
 
 lint:
-	ruff check . || true
+	ruff check .
+
+check:
+	./scripts/check.sh
 
 run:
 	uvicorn bitmind.api.main:app --reload --port 8000
