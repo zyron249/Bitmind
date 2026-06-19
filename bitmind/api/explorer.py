@@ -1,10 +1,15 @@
-from fastapi import APIRouter, HTTPException
-from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Dict, Any, Optional
 from ..core import models, audit
 from ..core import validators as core_validators
 from ..governance import proposals as gov_proposals, voting as gov_voting
 
 router = APIRouter(prefix="/explorer", tags=["explorer"])
+
+def paged_response(items: List[Any], limit: int, offset: int) -> Dict[str, Any]:
+    total = len(items)
+    sliced = items[offset: offset + limit]
+    return {"items": sliced, "limit": limit, "offset": offset, "total": total}
 
 @router.get("/summary")
 def summary():
@@ -37,9 +42,9 @@ def summary():
     }
 
 @router.get("/blocks")
-def list_blocks():
+def list_blocks(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0)):
     blocks = getattr(models.InMemoryDB, 'blocks', [])
-    return blocks
+    return paged_response(blocks, limit, offset)
 
 @router.get("/blocks/{block_index}")
 def get_block(block_index: int):
@@ -49,7 +54,7 @@ def get_block(block_index: int):
     return blocks[block_index]
 
 @router.get("/transactions")
-def list_transactions():
+def list_transactions(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), sender: Optional[str] = None, recipient: Optional[str] = None):
     blocks = getattr(models.InMemoryDB, 'blocks', [])
     txs = []
     for b in blocks:
@@ -57,7 +62,12 @@ def list_transactions():
             tx_copy = dict(tx)
             tx_copy['block_index'] = b.get('index')
             txs.append(tx_copy)
-    return txs
+    # filters
+    if sender:
+        txs = [t for t in txs if t.get('from') == sender]
+    if recipient:
+        txs = [t for t in txs if t.get('to') == recipient]
+    return paged_response(txs, limit, offset)
 
 @router.get("/transactions/{txid}")
 def get_transaction(txid: str):
@@ -71,15 +81,22 @@ def get_transaction(txid: str):
     raise HTTPException(status_code=404, detail="Transaction not found")
 
 @router.get("/validators")
-def get_validators():
+def get_validators(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), active: Optional[bool] = None, role: Optional[str] = None):
     vals = core_validators.list_validators()
-    # include ranking info
+    if active is not None:
+        vals = [v for v in vals if v.active == active]
+    if role:
+        vals = [v for v in vals if v.role == role]
+    # ranking
     ranked = sorted(vals, key=lambda v: (v.validator_score, v.reputation_score, v.successful_reviews), reverse=True)
-    return [v.dict() for v in ranked]
+    ranked_dicts = [v.dict() for v in ranked]
+    return paged_response(ranked_dicts, limit, offset)
 
 @router.get("/governance")
-def get_governance():
+def get_governance(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), status: Optional[str] = None):
     props = gov_proposals.list_proposals()
+    if status:
+        props = [p for p in props if p.status == status]
     out = []
     for p in props:
         tally = gov_voting.tally_votes_raw(p.proposal_id)
@@ -89,11 +106,19 @@ def get_governance():
             "no_power": tally['no_power'],
             "cast_power": tally['cast_power'],
         })
-    return out
+    return paged_response(out, limit, offset)
 
 @router.get("/audit")
-def get_audit():
+def get_audit(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), event_type: Optional[str] = None, actor_id: Optional[str] = None, target_id: Optional[str] = None):
     events = audit.list_audit_events()
-    # return recent (sorted by timestamp desc)
+    # filters
+    if event_type:
+        events = [e for e in events if e.event_type == event_type]
+    if actor_id:
+        events = [e for e in events if e.actor_id == actor_id]
+    if target_id:
+        events = [e for e in events if e.target_id == target_id]
+    # sort by timestamp desc
     sorted_ev = sorted(events, key=lambda e: e.timestamp, reverse=True)
-    return [e.dict() for e in sorted_ev]
+    ev_dicts = [e.dict() for e in sorted_ev]
+    return paged_response(ev_dicts, limit, offset)
