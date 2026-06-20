@@ -52,6 +52,8 @@ def deactivate_validator(validator_id: str) -> bool:
     if not v:
         return False
     v.active = False
+    # Mark explicit deactivation so non-active authorization checks can distinguish this state.
+    v.role = "inactive"
     models.InMemoryDB.validators[validator_id] = v
     return True
 
