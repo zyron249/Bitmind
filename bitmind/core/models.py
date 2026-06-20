@@ -18,7 +18,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
     reputation: float = 0.5
-    balance: float = 100.0  # initial balance for new users; staking does not enforce a minimum balance check
+    balance: float = 100.0  # starting balance for new users
     staked: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

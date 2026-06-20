@@ -15,7 +15,7 @@ class Proposal(BaseModel):
     voting_ends_at: datetime | None = None
     executed_at: datetime | None = None
     quorum_required: float = 0.20
-    # Set slightly above 2/3 to prevent premature finalization when a simple majority exists but not all votes are cast.
+    # Set to 67% (slightly above 2/3) to prevent early finalization when a bare majority exists but not all votes are cast.
     early_majority_threshold: float = 0.67
 
 

@@ -31,7 +31,10 @@ class Chain:
         last = self.get_last_block()
         if block.prev_hash != last.hash:
             return False
-        return self._verify_block_integrity(block) and (self.blocks.append(block) or True)
+        if not self._verify_block_integrity(block):
+            return False
+        self.blocks.append(block)
+        return True
 
     def validate_chain(self) -> bool:
         # Validate entire chain integrity
