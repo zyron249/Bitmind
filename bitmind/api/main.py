@@ -112,8 +112,9 @@ def submit_assignment(assignment_id: str, req: SubmitRequest):
     # Update reputation
     reputation.update_reputation(submission.user_id, submission.final_score)
 
-    # Distribute rewards (simulated)
-    rewards.distribute_reward_for_submission(submission.id)
+    # Distribute rewards only for hidden-test passes or non-test tasks
+    if ht_result is not False:
+        rewards.distribute_reward_for_submission(submission.id)
 
     return {
         "submission": submission.dict(),
