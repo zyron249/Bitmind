@@ -16,21 +16,22 @@ class Chain:
         block = Block(index=index, transactions=transactions, prev_hash=prev_hash)
         return block
 
+    def _verify_block_integrity(self, block: Block) -> bool:
+        """Return True if all transactions, merkle root, and block hash are internally consistent."""
+        if any(tx.txid != tx.calculate_txid() for tx in block.transactions):
+            return False
+        if block.merkle_root != block.calculate_merkle_root():
+            return False
+        if block.hash != block.calculate_hash():
+            return False
+        return True
+
     def add_block(self, block: Block) -> bool:
         # basic validation: prev_hash must match last block
         last = self.get_last_block()
         if block.prev_hash != last.hash:
             return False
-        # each transaction payload must match its txid
-        if any(tx.txid != tx.calculate_txid() for tx in block.transactions):
-            return False
-        # recompute merkle and hash and ensure they match
-        if block.merkle_root != block.calculate_merkle_root():
-            return False
-        if block.hash != block.calculate_hash():
-            return False
-        self.blocks.append(block)
-        return True
+        return self._verify_block_integrity(block) and (self.blocks.append(block) or True)
 
     def validate_chain(self) -> bool:
         # Validate entire chain integrity
@@ -40,13 +41,6 @@ class Chain:
             # Check prev_hash link
             if current.prev_hash != prev.hash:
                 return False
-            # Verify merkle root
-            if current.merkle_root != current.calculate_merkle_root():
-                return False
-            # Verify transactions were not tampered with
-            if any(tx.txid != tx.calculate_txid() for tx in current.transactions):
-                return False
-            # Verify block hash
-            if current.hash != current.calculate_hash():
+            if not self._verify_block_integrity(current):
                 return False
         return True
