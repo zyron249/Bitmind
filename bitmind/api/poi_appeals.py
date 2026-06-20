@@ -22,7 +22,7 @@ def _resolve_single_appeal(appeal_id: str, validator_id: str, reason: Optional[s
     if not appeal:
         raise HTTPException(status_code=404, detail="Appeal not found")
     if appeal.get('status') != 'pending':
-        raise HTTPException(status_code=400, detail="Appeal already resolved")
+        return {"appeal_id": appeal_id, "status": appeal.get('status')}
 
     status = 'approved' if approve else 'denied'
     event_type = 'appeal_approved' if approve else 'appeal_denied'
