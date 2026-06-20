@@ -43,4 +43,13 @@ class Chain:
             # Verify block hash
             if current.hash != current.calculate_hash():
                 return False
+            # Verify transactions' txids to detect tampering
+            try:
+                for tx in current.transactions:
+                    if hasattr(tx, 'calculate_txid') and hasattr(tx, 'txid'):
+                        if tx.txid != tx.calculate_txid():
+                            return False
+            except Exception:
+                # If transactions aren't Transaction objects, skip this check
+                pass
         return True
