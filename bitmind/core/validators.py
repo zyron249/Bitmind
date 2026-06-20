@@ -18,6 +18,7 @@ class Validator(BaseModel):
     successful_reviews: int = 0
     failed_reviews: int = 0
     slashes_count: int = 0
+    manually_deactivated: bool = False
     unstake_cooldown_end: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -52,6 +53,7 @@ def deactivate_validator(validator_id: str) -> bool:
     if not v:
         return False
     v.active = False
+    v.manually_deactivated = True
     models.InMemoryDB.validators[validator_id] = v
     return True
 
@@ -65,20 +67,21 @@ def is_authorized_validator(validator_id: str) -> bool:
 
 
 def stake_validator(validator_id: str, amount: float) -> bool:
-    """Stake BMD for a validator. Deducts from the user's balance via rewards.stake and updates validator stake."""
+    """Stake BMD for a validator and update validator/user stake state."""
     v = get_validator(validator_id)
     if not v:
+        return False
+    if amount <= 0:
         return False
     # find user
     user = models.get_user(v.user_id)
     if not user:
         return False
-    # Use rewards.stake to deduct user balance and user.staked
-    from . import rewards as core_rewards
-    try:
-        core_rewards.stake(user.id, amount)
-    except Exception:
-        return False
+    user.staked += amount
+    models.InMemoryDB.users[user.id] = user
+    # record stake event in ledger for visibility
+    from . import ledger
+    ledger.add_entry(user.id, -amount, reason=f"stake:validator:{validator_id}")
     v.staked_amount += amount
     # activate if meets minimum
     if v.staked_amount >= MIN_VALIDATOR_STAKE:

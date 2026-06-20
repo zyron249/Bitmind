@@ -25,9 +25,9 @@ def cast_vote(voter_validator_id: str, proposal_id: str, vote: str) -> bool:
     v = core_validators.get_validator(voter_validator_id)
     if not v or not core_validators.is_authorized_validator(voter_validator_id):
         return False
-    # ensure proposal exists and active
+    # ensure proposal exists
     p = proposals.get_proposal(proposal_id)
-    if not p or p.status != 'active':
+    if not p:
         return False
     # check voting period
     now = datetime.utcnow()

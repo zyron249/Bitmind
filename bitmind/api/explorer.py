@@ -11,6 +11,13 @@ def paged_response(items: List[Any], limit: int, offset: int) -> Dict[str, Any]:
     sliced = items[offset: offset + limit]
     return {"items": sliced, "limit": limit, "offset": offset, "total": total}
 
+def maybe_paged_response(items: List[Any], limit: Optional[int], offset: Optional[int], force_paged: bool = False):
+    if force_paged or limit is not None or offset is not None:
+        use_limit = 20 if limit is None else limit
+        use_offset = 0 if offset is None else offset
+        return paged_response(items, use_limit, use_offset)
+    return items
+
 @router.get("/summary")
 def summary():
     blocks = getattr(models.InMemoryDB, 'blocks', [])
@@ -42,9 +49,9 @@ def summary():
     }
 
 @router.get("/blocks")
-def list_blocks(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0)):
+def list_blocks(limit: Optional[int] = Query(None, ge=1), offset: Optional[int] = Query(None, ge=0)):
     blocks = getattr(models.InMemoryDB, 'blocks', [])
-    return paged_response(blocks, limit, offset)
+    return maybe_paged_response(blocks, limit, offset)
 
 @router.get("/blocks/{block_index}")
 def get_block(block_index: int):
@@ -54,7 +61,7 @@ def get_block(block_index: int):
     return blocks[block_index]
 
 @router.get("/transactions")
-def list_transactions(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), sender: Optional[str] = None, recipient: Optional[str] = None):
+def list_transactions(limit: Optional[int] = Query(None, ge=1), offset: Optional[int] = Query(None, ge=0), sender: Optional[str] = None, recipient: Optional[str] = None):
     blocks = getattr(models.InMemoryDB, 'blocks', [])
     txs = []
     for b in blocks:
@@ -67,7 +74,7 @@ def list_transactions(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0)
         txs = [t for t in txs if t.get('from') == sender]
     if recipient:
         txs = [t for t in txs if t.get('to') == recipient]
-    return paged_response(txs, limit, offset)
+    return maybe_paged_response(txs, limit, offset, force_paged=(sender is not None or recipient is not None))
 
 @router.get("/transactions/{txid}")
 def get_transaction(txid: str):
@@ -81,7 +88,7 @@ def get_transaction(txid: str):
     raise HTTPException(status_code=404, detail="Transaction not found")
 
 @router.get("/validators")
-def get_validators(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), active: Optional[bool] = None, role: Optional[str] = None):
+def get_validators(limit: Optional[int] = Query(None, ge=1), offset: Optional[int] = Query(None, ge=0), active: Optional[bool] = None, role: Optional[str] = None):
     vals = core_validators.list_validators()
     if active is not None:
         vals = [v for v in vals if v.active == active]
@@ -90,10 +97,10 @@ def get_validators(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), a
     # ranking
     ranked = sorted(vals, key=lambda v: (v.validator_score, v.reputation_score, v.successful_reviews), reverse=True)
     ranked_dicts = [v.dict() for v in ranked]
-    return paged_response(ranked_dicts, limit, offset)
+    return maybe_paged_response(ranked_dicts, limit, offset, force_paged=(active is not None or role is not None))
 
 @router.get("/governance")
-def get_governance(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), status: Optional[str] = None):
+def get_governance(limit: Optional[int] = Query(None, ge=1), offset: Optional[int] = Query(None, ge=0), status: Optional[str] = None):
     props = gov_proposals.list_proposals()
     if status:
         props = [p for p in props if p.status == status]
@@ -106,10 +113,10 @@ def get_governance(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), s
             "no_power": tally['no_power'],
             "cast_power": tally['cast_power'],
         })
-    return paged_response(out, limit, offset)
+    return maybe_paged_response(out, limit, offset, force_paged=(status is not None))
 
 @router.get("/audit")
-def get_audit(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), event_type: Optional[str] = None, actor_id: Optional[str] = None, target_id: Optional[str] = None):
+def get_audit(limit: Optional[int] = Query(None, ge=1), offset: Optional[int] = Query(None, ge=0), event_type: Optional[str] = None, actor_id: Optional[str] = None, target_id: Optional[str] = None):
     events = audit.list_audit_events()
     # filters
     if event_type:
@@ -121,4 +128,4 @@ def get_audit(limit: int = Query(20, ge=1), offset: int = Query(0, ge=0), event_
     # sort by timestamp desc
     sorted_ev = sorted(events, key=lambda e: e.timestamp, reverse=True)
     ev_dicts = [e.dict() for e in sorted_ev]
-    return paged_response(ev_dicts, limit, offset)
+    return maybe_paged_response(ev_dicts, limit, offset, force_paged=(event_type is not None or actor_id is not None or target_id is not None))

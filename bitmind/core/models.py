@@ -18,7 +18,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
     reputation: float = 0.5
-    balance: float = 10000.0  # start with enough simulated BMD for testing
+    balance: float = 100.0
     staked: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
