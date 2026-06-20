@@ -35,7 +35,7 @@ def slash_validator_for_event(validator_id: str, event: str) -> float:
     # update validator_score (penalize)
     v.validator_score = max(0.0, v.validator_score - percent)
     core_validators._ensure_registry()
-    core_validators_list = core_validators.list_validators()
+    # removed unused variable core_validators_list
     core_validators.get_validator(validator_id)  # no-op to keep consistent
     # save back
     core_validators.get_validator(validator_id)

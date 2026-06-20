@@ -31,7 +31,7 @@ def create_proposal(title: str, description: str, created_by: str, voting_starts
     voting_ends_at = voting_starts_at + timedelta(seconds=voting_period_seconds)
     p = Proposal(title=title, description=description, created_by=created_by, voting_starts_at=voting_starts_at, voting_ends_at=voting_ends_at, quorum_required=quorum_required)
     models.InMemoryDB.proposals[p.proposal_id] = p
-    audit.add_audit_event(event_type='proposal_created', actor_id=created_by, target_id=p.proposal_id, reason=title, metadata={"voting_starts_at": p.voting_starts_at.isoformat(), "voting_ends_at": p.voting_ends_at.isoformat(), "quorum_required": p.quorum_required})
+    audit.add_audit_event(event_type='proposal_created', actor_id=created_by, target_id=p.proposal_id, reason=title, metadata={"voting_starts_at": p.voting_starts_at.isoformat(), "voting_ends_at": p.voting_ends_at.isoformat()})
     return p
 
 
@@ -76,7 +76,6 @@ def finalize_proposal(proposal_id: str) -> dict:
     quorum = 0.0
     if total_active > 0:
         quorum = cast / total_active
-    passed = False
     if quorum < p.quorum_required:
         set_proposal_status(proposal_id, 'rejected')
         audit.add_audit_event(event_type='proposal_finalized', actor_id=None, target_id=proposal_id, reason='quorum_failed', metadata={"quorum": quorum, "required": p.quorum_required})
@@ -85,7 +84,6 @@ def finalize_proposal(proposal_id: str) -> dict:
     if yes > no:
         set_proposal_status(proposal_id, 'passed')
         audit.add_audit_event(event_type='proposal_finalized', actor_id=None, target_id=proposal_id, reason='passed', metadata={"yes": yes, "no": no, "quorum": quorum})
-        passed = True
         return {"status": "passed", "yes": yes, "no": no, "quorum": quorum}
     else:
         set_proposal_status(proposal_id, 'rejected')

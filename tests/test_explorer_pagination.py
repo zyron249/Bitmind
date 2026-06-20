@@ -92,7 +92,7 @@ def test_explorer_pagination_and_filters(client):
     assert all(a["event_type"] == "evA" for a in a_evA["items"])
 
     # audit actor_id filter
-    a_actor = client.get(f"/explorer/audit?actor_id={u2["id"]}").json()
+    a_actor = client.get(f"/explorer/audit?actor_id={u2['id']}").json()
     assert all(a["actor_id"] == u2["id"] for a in a_actor["items"])
 
     # validators active filter
@@ -106,4 +106,3 @@ def test_explorer_pagination_and_filters(client):
     # governance status filter
     gov_passed = client.get("/explorer/governance?status=passed").json()
     assert all(item["proposal"]["status"] == "passed" for item in gov_passed["items"])
-

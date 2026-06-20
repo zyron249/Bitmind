@@ -66,9 +66,9 @@ def test_heartbeat_updates_last_seen_and_missing():
     assert new_last_seen >= old_last_seen
 
     # missing peer heartbeat
-    resp = client.post(f"/network/peers/not-a-peer/heartbeat")
+    resp = client.post("/network/peers/not-a-peer/heartbeat")
     assert resp.status_code == 404
 
     # missing peer delete
-    rdel = client.delete(f"/network/peers/not-a-peer")
+    rdel = client.delete("/network/peers/not-a-peer")
     assert rdel.status_code == 404

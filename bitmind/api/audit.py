@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from ..core import audit
-from ..core import validators as core_validators
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 

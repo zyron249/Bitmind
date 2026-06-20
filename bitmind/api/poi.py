@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 from ..core import models, anti_cheat, rewards, ledger, validators as core_validators
 from ..consensus import proof_of_intelligence, consensus as consensus_module, validators as consensus_validators, scoring
+import uuid
+from datetime import datetime
 
 router = APIRouter(prefix="/poi", tags=["proof_of_intelligence"])
 
@@ -122,7 +124,7 @@ def get_poi_status(submission_id: str):
     submission = models.InMemoryDB.submissions.get(submission_id)
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    task = models.get_task(submission.assignment.task_id)
+    # removed unused 'task' variable
     fraud = anti_cheat.fraud_risk_score(submission)
     cons = consensus_module.compute_consensus_for_task(submission.assignment.task_id)
     approval = consensus_validators.validators_approval(submission.assignment.task_id, cons["consensus_score"])
