@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict
 
@@ -10,7 +10,8 @@ class Peer:
     port: int
     last_seen: datetime
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, str]:
+        """Serialize Peer to a dictionary suitable for JSON responses."""
         return {
             "peer_id": self.peer_id,
             "host": self.host,
