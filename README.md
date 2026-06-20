@@ -1,52 +1,34 @@
-# BitMind
+# Bitmind P2P Network
 
-![CI](https://github.com/zyron249/Bitmind/actions/workflows/ci.yml/badge.svg)
+This project includes an in-memory, deterministic P2P node network implementation for testing and local development.
 
-BitMind is a prototype project that demonstrates a quality-first reward system for human contributions backed by a simulated token ledger (BMD). The focus is on anti-cheat, reputation, multi-review consensus, and reward distribution. This MVP is intentionally in-memory and does not include any blockchain or real OpenAI keys.
+## Peer registration API
 
-Features (MVP)
-- User creation and basic wallet (simulated)
-- Create AI training tasks and hidden test tasks
-- Assign tasks to multiple users (3–7 reviewers)
-- Submit answers and automatic placeholder AI scoring
-- Hidden test checking
-- Multi-review consensus placeholder
-- Reputation update
-- Simulated BMD reward ledger and stake/slashing simulation
-- Fraud risk scoring (heuristic placeholder)
-- REST API with FastAPI
+Register a peer (example):
 
-Run locally (development):
-1. Create a Python 3.10+ virtual environment
-2. pip install -r requirements.txt
-3. uvicorn bitmind.api.main:app --reload --port 8000
+curl -X POST "http://localhost:8000/network/peers" -H "Content-Type: application/json" -d '{"host":"127.0.0.1","port":8000}'
 
-OpenAPI docs: http://127.0.0.1:8000/docs
+Response:
+{
+  "peer_id": "...",
+  "host": "127.0.0.1",
+  "port": 8000,
+  "last_seen": "2026-06-20T00:00:00.000000"
+}
 
-Testing
+List peers:
 
-- Run unit tests:
-  pytest -q
+curl "http://localhost:8000/network/peers"
 
-Coverage
+Delete a peer:
 
-- Run coverage report:
-  make coverage
+curl -X DELETE "http://localhost:8000/network/peers/<peer_id>"
 
-Docker (development)
+Heartbeat (update last_seen):
 
-- Build and run with Docker Compose (starts API, Postgres, Redis):
-  make docker-up
+curl -X POST "http://localhost:8000/network/peers/<peer_id>/heartbeat"
 
-CI (GitHub Actions)
-
-- The repository includes a CI workflow (.github/workflows/ci.yml) that runs on push and pull requests to main. The workflow:
-  - Installs dependencies
-  - Runs ruff linter (must pass)
-  - Runs pytest with coverage reporting (must pass)
-
-Notes
-
-- This project is an MVP for architecture and experimentation. Do NOT use it in production.
-- No real OpenAI API key is included; integration points are clearly marked to be added via environment variables later.
-- The MVP uses an in-memory storage backend by default. A PostgreSQL scaffold exists in bitmind/db/ for future migration and Alembic usage.
+Notes:
+- In-memory only (no real sockets or persistent storage).
+- Deterministic peer IDs are generated from host:port using uuid5.
+- No authentication in this v1.
