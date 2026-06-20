@@ -54,6 +54,8 @@ def cast_vote(voter_validator_id: str, proposal_id: str, vote: str) -> bool:
             proposals.set_proposal_status(proposal_id, 'passed')
         elif (no_power / total_active) >= p.early_majority_threshold:
             proposals.set_proposal_status(proposal_id, 'rejected')
+        elif cast_power >= total_active:
+            proposals.set_proposal_status(proposal_id, 'passed' if yes_power > no_power else 'rejected')
     return True
 
 

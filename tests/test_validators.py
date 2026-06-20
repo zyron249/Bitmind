@@ -32,6 +32,7 @@ def test_validators_and_permission_flow(client):
     assert v.status_code == 201
     vj = v.json()
     vid = vj["validator_id"]
+    client.post("/validators/stake", json={"validator_id": vid, "amount": 2000})
 
     # create task and evaluate
     task = client.post("/tasks", json={"prompt":"What is 2+2?","answer_key":"4","is_test":True}).json()
@@ -61,6 +62,7 @@ def test_validators_and_permission_flow(client):
     # active validator (re-create) can reject
     v2 = client.post("/validators", json={"user_id": u1["id"], "role": "validator"})
     vid2 = v2.json()["validator_id"]
+    client.post("/validators/stake", json={"validator_id": vid2, "amount": 2000})
     rej = client.post("/poi/reject", json={"submission_id": r2["submission_id"], "validator_id": vid2, "reason": "low quality"})
     assert rej.status_code == 200
     jr = rej.json()

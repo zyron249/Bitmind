@@ -15,7 +15,7 @@ class Proposal(BaseModel):
     voting_ends_at: datetime | None = None
     executed_at: datetime | None = None
     quorum_required: float = 0.20
-    early_majority_threshold: float = 0.66
+    early_majority_threshold: float = 0.67
 
 
 def _ensure_store():

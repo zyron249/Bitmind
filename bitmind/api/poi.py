@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from ..core import models, anti_cheat, rewards, ledger, validators as core_validators
-from ..consensus import proof_of_intelligence, consensus as consensus_module, validators as consensus_validators, scoring
+from ..consensus import proof_of_intelligence, consensus as consensus_module, validators as consensus_validators, scoring, slashing as slashing_rules
 import uuid
 from datetime import datetime
 
@@ -84,6 +84,7 @@ def evaluate_contribution(req: EvaluateRequest):
 
     # fraud risk
     fraud = req.fraud_risk if req.fraud_risk is not None else anti_cheat.fraud_risk_score(submission)
+    submission.fraud_risk = fraud
 
     # consensus and validators
     cons = consensus_module.compute_consensus_for_task(req.task_id)
@@ -165,15 +166,20 @@ def award_submission(req: AwardRequest):
         raise HTTPException(status_code=404, detail="Submission not found")
     # authorization check: approved_by_validator_id must be an active validator
     if not core_validators.is_authorized_validator(req.approved_by_validator_id):
+        slashing_rules.slash_validator_for_event(req.approved_by_validator_id, "invalid_action")
         raise HTTPException(status_code=403, detail="Validator not authorized")
     if sub.awarded:
+        slashing_rules.slash_validator_for_event(req.approved_by_validator_id, "double_award")
         return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="already_awarded")
     # check eligibility
-    fraud = anti_cheat.fraud_risk_score(sub)
+    fraud = sub.fraud_risk if sub.fraud_risk is not None else anti_cheat.fraud_risk_score(sub)
     cons = consensus_module.compute_consensus_for_task(sub.assignment.task_id)
-    approval = consensus_validators.validators_approval(sub.assignment.task_id, cons["consensus_score"])
-    eligible = cons["consensus_pass"] and approval and sub.final_score > 0 and fraud < 0.8
+    eligible = cons["consensus_pass"] and sub.verdict == "ok" and sub.final_score > 0 and fraud < 0.8
     if not eligible:
+        if fraud >= 0.8:
+            slashing_rules.slash_validator_for_event(req.approved_by_validator_id, "fraud_approval")
+        else:
+            slashing_rules.slash_validator_for_event(req.approved_by_validator_id, "invalid_action")
         return AwardResponse(awarded=False, amount=0.0, ledger_entry_id=None, reason="not_eligible")
     # award
     amount = rewards.compute_reward_for_submission(sub)

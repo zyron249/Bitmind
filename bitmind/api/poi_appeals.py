@@ -15,11 +15,50 @@ class BatchAppealActionRequest(BaseModel):
     appeal_ids: List[str]
     reason: Optional[str] = None
 
+
+def _resolve_single_appeal(appeal_id: str, validator_id: str, reason: Optional[str], approve: bool):
+    appeals = getattr(models.InMemoryDB, 'appeals', [])
+    appeal = next((a for a in appeals if a.get('appeal_id') == appeal_id), None)
+    if not appeal:
+        raise HTTPException(status_code=404, detail="Appeal not found")
+    if appeal.get('status') != 'pending':
+        raise HTTPException(status_code=400, detail="Appeal already resolved")
+
+    status = 'approved' if approve else 'denied'
+    event_type = 'appeal_approved' if approve else 'appeal_denied'
+    verdict = 'appeal_approved' if approve else 'appeal_denied'
+    appeal['status'] = status
+    appeal['resolved_by'] = validator_id
+    appeal['resolved_at'] = datetime.utcnow().isoformat()
+    if not approve:
+        appeal['denial_reason'] = reason
+    sub_id = appeal.get('submission_id')
+    sub = models.InMemoryDB.submissions.get(sub_id)
+    if sub:
+        sub.verdict = verdict
+        models.InMemoryDB.submissions[sub.id] = sub
+    audit.add_audit_event(event_type=event_type, actor_id=validator_id, target_id=sub_id, reason=reason, metadata={'appeal_id': appeal_id})
+    return {"appeal_id": appeal_id, "status": status}
+
 @router.get("/appeals/pending")
 def list_pending_appeals():
     appeals = getattr(models.InMemoryDB, 'appeals', [])
     pending = [a for a in appeals if a.get('status') == 'pending']
     return pending
+
+
+@router.post("/appeal/{appeal_id}/approve")
+def approve_appeal(appeal_id: str, req: AppealActionRequest):
+    if not core_validators.is_authorized_validator(req.validator_id):
+        raise HTTPException(status_code=403, detail="Validator not authorized")
+    return _resolve_single_appeal(appeal_id, req.validator_id, req.reason, approve=True)
+
+
+@router.post("/appeal/{appeal_id}/deny")
+def deny_appeal(appeal_id: str, req: AppealActionRequest):
+    if not core_validators.is_authorized_validator(req.validator_id):
+        raise HTTPException(status_code=403, detail="Validator not authorized")
+    return _resolve_single_appeal(appeal_id, req.validator_id, req.reason, approve=False)
 
 @router.post("/appeals/batch-approve")
 def batch_approve_appeals(req: BatchAppealActionRequest):

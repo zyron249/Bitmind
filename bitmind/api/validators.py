@@ -36,6 +36,13 @@ def list_validators():
     vals = core_validators.list_validators()
     return [v.dict() for v in vals]
 
+@router.get("/ranking")
+def ranking():
+    vals = core_validators.list_validators()
+    # sort by validator_score desc, reputation desc, successful_reviews desc
+    sorted_vals = sorted(vals, key=lambda v: (v.validator_score, v.reputation_score, v.successful_reviews), reverse=True)
+    return [v.dict() for v in sorted_vals]
+
 @router.get("/{validator_id}")
 def get_validator(validator_id: str):
     v = core_validators.get_validator(validator_id)
@@ -83,10 +90,3 @@ def withdraw(req: WithdrawRequest):
         raise HTTPException(status_code=400, detail="Cannot withdraw yet or no stake")
     audit.add_audit_event(event_type='withdraw', actor_id=v.user_id, target_id=v.validator_id, reason=f"amount={amount}")
     return {"withdrawn": True, "validator_id": req.validator_id, "amount": amount}
-
-@router.get("/ranking")
-def ranking():
-    vals = core_validators.list_validators()
-    # sort by validator_score desc, reputation desc, successful_reviews desc
-    sorted_vals = sorted(vals, key=lambda v: (v.validator_score, v.reputation_score, v.successful_reviews), reverse=True)
-    return [v.dict() for v in sorted_vals]

@@ -46,6 +46,7 @@ class Submission(BaseModel):
     auto_score: float = 0.0
     human_score: Optional[float] = None
     final_score: float = 0.0
+    fraud_risk: Optional[float] = None
     verdict: Optional[str] = None
     awarded: bool = False
     rejection_reason: Optional[str] = None

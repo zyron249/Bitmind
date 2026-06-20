@@ -21,6 +21,9 @@ class Chain:
         last = self.get_last_block()
         if block.prev_hash != last.hash:
             return False
+        # each transaction payload must match its txid
+        if any(tx.txid != tx.calculate_txid() for tx in block.transactions):
+            return False
         # recompute merkle and hash and ensure they match
         if block.merkle_root != block.calculate_merkle_root():
             return False
@@ -39,6 +42,9 @@ class Chain:
                 return False
             # Verify merkle root
             if current.merkle_root != current.calculate_merkle_root():
+                return False
+            # Verify transactions were not tampered with
+            if any(tx.txid != tx.calculate_txid() for tx in current.transactions):
                 return False
             # Verify block hash
             if current.hash != current.calculate_hash():

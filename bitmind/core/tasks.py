@@ -35,9 +35,8 @@ def try_resolve_task_consensus(task_id: str):
     if not submissions:
         return None
     avg = sum(s.final_score for s in submissions) / len(submissions)
-    # For demo, set each submission human_score/final_score to avg
+    # For demo, set each submission human_score to avg without overriding prior final verdict scores.
     for s in submissions:
         s.human_score = avg
-        s.final_score = avg
         models.InMemoryDB.submissions[s.id] = s
     return avg

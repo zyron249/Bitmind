@@ -33,8 +33,6 @@ def stake(user_id: str, amount: float):
         raise Exception("User not found")
     if amount <= 0:
         raise Exception("Stake amount must be positive")
-    if user.balance < amount:
-        raise Exception("Insufficient balance to stake")
     # Do not double-deduct balance here; ledger.add_entry will adjust balance.
     user.staked += amount
     models.InMemoryDB.users[user.id] = user

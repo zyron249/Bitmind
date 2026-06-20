@@ -60,7 +60,8 @@ def test_explorer_endpoints(client):
 
     # blocks
     blocks = client.get("/explorer/blocks").json()
-    assert isinstance(blocks, list)
+    assert isinstance(blocks, dict)
+    assert isinstance(blocks["items"], list)
     b0 = client.get("/explorer/blocks/0").json()
     assert b0["hash"] == "abc"
     # missing block
@@ -69,7 +70,8 @@ def test_explorer_endpoints(client):
 
     # transactions
     txs = client.get("/explorer/transactions").json()
-    assert isinstance(txs, list)
+    assert isinstance(txs, dict)
+    assert isinstance(txs["items"], list)
     tx1 = client.get("/explorer/transactions/tx1").json()
     assert tx1["txid"] == "tx1"
     r2 = client.get("/explorer/transactions/notx")
@@ -77,13 +79,15 @@ def test_explorer_endpoints(client):
 
     # validators
     vals = client.get("/explorer/validators").json()
-    assert isinstance(vals, list)
+    assert isinstance(vals, dict)
+    assert isinstance(vals["items"], list)
 
     # governance
     gov = client.get("/explorer/governance").json()
-    assert isinstance(gov, list)
+    assert isinstance(gov, dict)
+    assert isinstance(gov["items"], list)
 
     # audit
     audits = client.get("/explorer/audit").json()
-    assert isinstance(audits, list)
-
+    assert isinstance(audits, dict)
+    assert isinstance(audits["items"], list)

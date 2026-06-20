@@ -29,6 +29,9 @@ def test_award_and_reject_and_appeal_flow(client):
     user1 = models.get_user(u1["id"])
     user1.reputation = 0.9
     models.InMemoryDB.users[user1.id] = user1
+    v = client.post("/validators", json={"user_id": u1["id"], "role": "validator"}).json()
+    vid = v["validator_id"]
+    client.post("/validators/stake", json={"validator_id": vid, "amount": 2000})
 
     task = client.post("/tasks", json={"prompt":"What is 2+2?","answer_key":"4","is_test":True}).json()
 
@@ -37,28 +40,28 @@ def test_award_and_reject_and_appeal_flow(client):
     r2 = client.post("/poi/evaluate", json={"user_id": u2["id"], "task_id": task["id"], "submission_content": "four"}).json()
 
     # Try to award u1
-    award_resp = client.post("/poi/award", json={"submission_id": r1["submission_id"], "approved_by_validator_id": u1["id"]})
+    award_resp = client.post("/poi/award", json={"submission_id": r1["submission_id"], "approved_by_validator_id": vid})
     assert award_resp.status_code == 200
     ar = award_resp.json()
     assert ar["awarded"] is True
     assert ar["amount"] > 0
 
     # Prevent double awarding
-    award_resp2 = client.post("/poi/award", json={"submission_id": r1["submission_id"], "approved_by_validator_id": u1["id"]})
+    award_resp2 = client.post("/poi/award", json={"submission_id": r1["submission_id"], "approved_by_validator_id": vid})
     assert award_resp2.status_code == 200
     ar2 = award_resp2.json()
     assert ar2["awarded"] is False
     assert ar2["reason"] == "already_awarded"
 
     # Non-eligible cannot be awarded
-    award_resp3 = client.post("/poi/award", json={"submission_id": r2["submission_id"], "approved_by_validator_id": u1["id"]})
+    award_resp3 = client.post("/poi/award", json={"submission_id": r2["submission_id"], "approved_by_validator_id": vid})
     assert award_resp3.status_code == 200
     ar3 = award_resp3.json()
     assert ar3["awarded"] is False
     assert ar3["reason"] == "not_eligible"
 
     # Reject a submission
-    rej = client.post("/poi/reject", json={"submission_id": r2["submission_id"], "validator_id": u1["id"], "reason": "low quality"})
+    rej = client.post("/poi/reject", json={"submission_id": r2["submission_id"], "validator_id": vid, "reason": "low quality"})
     assert rej.status_code == 200
     jr = rej.json()
     assert jr["rejected"] is True
