@@ -18,6 +18,7 @@ class Validator(BaseModel):
     successful_reviews: int = 0
     failed_reviews: int = 0
     slashes_count: int = 0
+    manually_deactivated: bool = False
     unstake_cooldown_end: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -52,8 +53,7 @@ def deactivate_validator(validator_id: str) -> bool:
     if not v:
         return False
     v.active = False
-    # Mark explicit deactivation so non-active authorization checks can distinguish this state.
-    v.role = "inactive"
+    v.manually_deactivated = True
     models.InMemoryDB.validators[validator_id] = v
     return True
 

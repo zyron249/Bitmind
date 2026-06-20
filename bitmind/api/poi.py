@@ -48,7 +48,7 @@ def _is_reputation_authorized_user(actor_id: str) -> bool:
 
 def _is_authorized_actor(actor_id: str) -> bool:
     validator = core_validators.get_validator(actor_id)
-    if validator and validator.role in ("validator", "admin"):
+    if validator and validator.role in ("validator", "admin") and not validator.manually_deactivated:
         return True
     return _is_reputation_authorized_user(actor_id)
 
